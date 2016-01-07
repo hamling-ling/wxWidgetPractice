@@ -11,6 +11,7 @@
 #ifndef _WX_CUBE_H_
 #define _WX_CUBE_H_
 
+#include <GL/glew.h>
 #include "wx/glcanvas.h"
 
 // the rendering context used by all GL canvases

@@ -102,6 +102,8 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 {
     SetCurrent(*canvas);
 
+	glewInit();
+
     // set up the parameters we want to use
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
