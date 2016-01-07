@@ -1,41 +1,7 @@
-///////////////////////////////////////////////////////////////////////////////
-// Name:        cube.cpp
-// Purpose:     wxGLCanvas demo program
-// Author:      Julian Smart
-// Modified by: Vadim Zeitlin to use new wxGLCanvas API (2007-04-09)
-// Created:     04/01/98
-// Copyright:   (c) Julian Smart
-// Licence:     wxWindows licence
-///////////////////////////////////////////////////////////////////////////////
-
-// ============================================================================
-// declarations
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// headers
-// ----------------------------------------------------------------------------
-
 // For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
 
-#ifdef __BORLANDC__
-#pragma hdrstop
-#endif
-
-#ifndef WX_PRECOMP
-#include "wx/wx.h"
-#endif
-
-#if !wxUSE_GLCANVAS
-    #error "OpenGL required: set wxUSE_GLCANVAS to 1 and rebuild the library"
-#endif
-
 #include "MinimumGl.h"
-
-#ifndef wxHAS_IMAGES_IN_RESOURCES
-    #include "../../sample.xpm"
-#endif
 
 // ----------------------------------------------------------------------------
 // constants
@@ -268,34 +234,20 @@ bool MyApp::OnInit()
 int MyApp::OnExit()
 {
     delete m_glContext;
-    delete m_glStereoContext;
 
     return wxApp::OnExit();
 }
 
-TestGLContext& MyApp::GetContext(wxGLCanvas *canvas, bool useStereo)
+TestGLContext& MyApp::GetContext(wxGLCanvas *canvas)
 {
     TestGLContext *glContext;
-    if ( useStereo )
+    if ( !m_glContext )
     {
-        if ( !m_glStereoContext )
-        {
-            // Create the OpenGL context for the first stereo window which needs it:
-            // subsequently created windows will all share the same context.
-            m_glStereoContext = new TestGLContext(canvas);
-        }
-        glContext = m_glStereoContext;
+        // Create the OpenGL context for the first mono window which needs it:
+        // subsequently created windows will all share the same context.
+        m_glContext = new TestGLContext(canvas);
     }
-    else
-    {
-        if ( !m_glContext )
-        {
-            // Create the OpenGL context for the first mono window which needs it:
-            // subsequently created windows will all share the same context.
-            m_glContext = new TestGLContext(canvas);
-        }
-        glContext = m_glContext;
-    }
+    glContext = m_glContext;
 
     glContext->SetCurrent(*canvas);
 
@@ -312,30 +264,18 @@ wxBEGIN_EVENT_TABLE(TestGLCanvas, wxGLCanvas)
     EVT_TIMER(SpinTimer, TestGLCanvas::OnSpinTimer)
 wxEND_EVENT_TABLE()
 
-TestGLCanvas::TestGLCanvas(wxWindow *parent, int *attribList)
+TestGLCanvas::TestGLCanvas(wxWindow *parent)
     // With perspective OpenGL graphics, the wxFULL_REPAINT_ON_RESIZE style
     // flag should always be set, because even making the canvas smaller should
     // be followed by a paint event that updates the entire canvas with new
     // viewport settings.
-    : wxGLCanvas(parent, wxID_ANY, attribList,
+    : wxGLCanvas(parent, wxID_ANY, NULL,
                  wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_xangle(30.0),
       m_yangle(30.0),
-      m_spinTimer(this,SpinTimer),
-      m_useStereo(false),
-      m_stereoWarningAlreadyDisplayed(false)
+      m_spinTimer(this,SpinTimer)
 {
-    if ( attribList )
-    {
-        int i = 0;
-        while ( attribList[i] != 0 )
-        {
-            if ( attribList[i] == WX_GL_STEREO )
-                m_useStereo = true;
-            ++i;
-        }
-    }
 }
 
 void TestGLCanvas::OnPaint(wxPaintEvent& WXUNUSED(event))
@@ -351,36 +291,9 @@ void TestGLCanvas::OnPaint(wxPaintEvent& WXUNUSED(event))
     // is wrong when next another canvas is repainted.
     const wxSize ClientSize = GetClientSize();
 
-    TestGLContext& canvas = wxGetApp().GetContext(this, m_useStereo);
+    TestGLContext& canvas = wxGetApp().GetContext(this);
     glViewport(0, 0, ClientSize.x, ClientSize.y);
-
-    // Render the graphics and swap the buffers.
-    GLboolean quadStereoSupported;
-    glGetBooleanv( GL_STEREO, &quadStereoSupported);
-    if ( quadStereoSupported )
-    {
-        glDrawBuffer( GL_BACK_LEFT );
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-0.47f, 0.53f, -0.5f, 0.5f, 1.0f, 3.0f);
-        canvas.DrawRotatedCube(m_xangle, m_yangle);
-        CheckGLError();
-        glDrawBuffer( GL_BACK_RIGHT );
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-0.53f, 0.47f, -0.5f, 0.5f, 1.0f, 3.0f);
-        canvas.DrawRotatedCube(m_xangle, m_yangle);
-        CheckGLError();
-    }
-    else
-    {
-        canvas.DrawRotatedCube(m_xangle, m_yangle);
-        if ( m_useStereo && !m_stereoWarningAlreadyDisplayed )
-        {
-            m_stereoWarningAlreadyDisplayed = true;
-            wxLogError("Stereo not supported by the graphics card.");
-        }
-    }
+	canvas.DrawRotatedCube(m_xangle, m_yangle);
     SwapBuffers();
 }
 
@@ -454,23 +367,21 @@ wxString glGetwxString(GLenum name)
 
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(wxID_NEW, MyFrame::OnNewWindow)
-    EVT_MENU(NEW_STEREO_WINDOW, MyFrame::OnNewStereoWindow)
     EVT_MENU(wxID_CLOSE, MyFrame::OnClose)
 wxEND_EVENT_TABLE()
 
-MyFrame::MyFrame( bool stereoWindow )
+MyFrame::MyFrame()
        : wxFrame(NULL, wxID_ANY, wxT("wxWidgets OpenGL Cube Sample"))
 {
-    int stereoAttribList[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_STEREO, 0 };
+    //int stereoAttribList[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_STEREO, 0 };
 
-    new TestGLCanvas(this, stereoWindow ? stereoAttribList : NULL);
+    new TestGLCanvas(this);
 
     SetIcon(wxICON(sample));
 
     // Make a menubar
     wxMenu *menu = new wxMenu;
     menu->Append(wxID_NEW);
-    menu->Append(NEW_STEREO_WINDOW, "New Stereo Window");
     menu->AppendSeparator();
     menu->Append(wxID_CLOSE);
     wxMenuBar *menuBar = new wxMenuBar;
@@ -487,15 +398,6 @@ MyFrame::MyFrame( bool stereoWindow )
     static const int attribs[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, 0 };
     wxLogStatus("Double-buffered display %s supported",
                 wxGLCanvas::IsDisplaySupported(attribs) ? "is" : "not");
-
-    if ( stereoWindow )
-    {
-        const wxString vendor = glGetwxString(GL_VENDOR).Lower();
-        const wxString renderer = glGetwxString(GL_RENDERER).Lower();
-        if ( vendor.find("nvidia") != wxString::npos &&
-                renderer.find("quadro") == wxString::npos )
-            ShowFullScreen(true);
-    }
 }
 
 void MyFrame::OnClose(wxCommandEvent& WXUNUSED(event))
@@ -509,7 +411,3 @@ void MyFrame::OnNewWindow( wxCommandEvent& WXUNUSED(event) )
     new MyFrame();
 }
 
-void MyFrame::OnNewStereoWindow( wxCommandEvent& WXUNUSED(event) )
-{
-    new MyFrame(true);
-}

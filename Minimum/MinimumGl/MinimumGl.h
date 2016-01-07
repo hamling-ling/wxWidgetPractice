@@ -31,11 +31,11 @@ private:
 class MyApp : public wxApp
 {
 public:
-    MyApp() { m_glContext = NULL; m_glStereoContext = NULL; }
+    MyApp() { m_glContext = NULL;}
 
     // Returns the shared context used by all frames and sets it as current for
     // the given canvas.
-    TestGLContext& GetContext(wxGLCanvas *canvas, bool useStereo);
+    TestGLContext& GetContext(wxGLCanvas *canvas);
 
     // virtual wxApp methods
     virtual bool OnInit() wxOVERRIDE;
@@ -44,20 +44,17 @@ public:
 private:
     // the GL context we use for all our mono rendering windows
     TestGLContext *m_glContext;
-    // the GL context we use for all our stereo rendering windows
-    TestGLContext *m_glStereoContext;
 };
 
 // Define a new frame type
 class MyFrame : public wxFrame
 {
 public:
-    MyFrame(bool stereoWindow = false);
+    MyFrame();
 
 private:
     void OnClose(wxCommandEvent& event);
     void OnNewWindow(wxCommandEvent& event);
-    void OnNewStereoWindow(wxCommandEvent& event);
 
     wxDECLARE_EVENT_TABLE();
 };
@@ -65,7 +62,7 @@ private:
 class TestGLCanvas : public wxGLCanvas
 {
 public:
-    TestGLCanvas(wxWindow *parent, int *attribList = NULL);
+    TestGLCanvas(wxWindow *parent);
 
 private:
     void OnPaint(wxPaintEvent& event);
@@ -78,8 +75,6 @@ private:
           m_yangle;
 
     wxTimer m_spinTimer;
-    bool m_useStereo,
-         m_stereoWarningAlreadyDisplayed;
 
     wxDECLARE_EVENT_TABLE();
 };
