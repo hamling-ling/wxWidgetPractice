@@ -173,6 +173,10 @@ copy /Y "$(ProjectDir)texture.bmp" "$(OutDir)"
   <ItemGroup>
     <ClInclude Include="MinimumGl.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Texture.frag" />
+    <None Include="Texture.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

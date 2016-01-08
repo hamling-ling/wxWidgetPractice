@@ -4,6 +4,7 @@
 #include "MinimumGl.h"
 #include "Texture.h"
 #include "Matrix4x4f.h"
+#include <GL/wglew.h>
 
 // ----------------------------------------------------------------------------
 // constants
@@ -131,31 +132,28 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 	CheckGLError();
 	glewInit();
 	CheckGLError();
-
+#if 0
+#else
 	g_vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	LoadShaderSource(g_vertexShader, "Texture.vert");
 	glCompileShader(g_vertexShader);
-	CheckGLError();
 
 	g_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	LoadShaderSource(g_fragmentShader, "Texture.frag");
 	glCompileShader(g_fragmentShader);
-	CheckGLError();
 
 	g_shaderProgram = glCreateProgram();
 	glAttachShader(g_shaderProgram, g_vertexShader);
 	glAttachShader(g_shaderProgram, g_fragmentShader);
-	CheckGLError();
 
-	glDeleteShader(g_vertexShader);
-	glDeleteShader(g_fragmentShader);
 	glLinkProgram(g_shaderProgram);
-	CheckGLError();
 
 	GLint vertexLocation = glGetAttribLocation(g_shaderProgram, "Vertex");
 	GLint normalLocation = glGetAttribLocation(g_shaderProgram, "Normal");
 	GLint texCoordLocation = glGetAttribLocation(g_shaderProgram, "TexCoord");
-	CheckGLError();
+
+	glDeleteShader(g_vertexShader);
+	glDeleteShader(g_fragmentShader);
 
 	CTexture texture;
 	texture.LoadBitmapFile("texture.bmp");
@@ -169,21 +167,16 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "Vertex"));
 	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "Normal"));
 	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "TexCoord"));
-	CheckGLError();
 
 	glUseProgram(g_shaderProgram);
-	CheckGLError();
-	glUniform1f(glGetUniformLocation(g_shaderProgram, "surfaceTexture"), 0);
-	CheckGLError();
+	GLint tex = glGetUniformLocation(g_shaderProgram, "surfaceTexture");
+	glUniform1i(tex, 0);
 	glUseProgram(0);
-	CheckGLError();
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
 	glClearColor(0.0f, 0.0f, 0.2f, 1.0f);
-
-    CheckGLError();
 
 	const GLfloat lightPosition[4] = { 3.0f, 4.0f, 0.0f, 0.0f };
 	const GLfloat lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -205,8 +198,6 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ks"), 1, cubeSpecular);
 	glUniform1fv(glGetUniformLocation(g_shaderProgram, "shininess"), 1, cubeShininess);
 
-	CheckGLError();
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glBindTexture(GL_TEXTURE_2D, pOrigObj->GetTextureObject());
@@ -218,7 +209,7 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 	glFlush();
 
 	glUseProgram(0);
-
+#endif
 	CheckGLError();
 }
 
@@ -231,7 +222,11 @@ TestGLContext::~TestGLContext()
 void TestGLContext::DrawRotatedCube(float nWidth, float nHeight)
 {
 	CheckGLError();
+#if 0
+	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 
+#else
 	CMatrix4x4f perspective;;
 
 	float l, r, b, t, n = 0.1f, f = 10.0f;
@@ -270,11 +265,36 @@ void TestGLContext::DrawRotatedCube(float nWidth, float nHeight)
 	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "modelViewProjectionMatrix"), 1, GL_FALSE, modelViewProjectionMatrix);
 	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelViewMatrix);
 	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "viewMatrix"), 1, GL_FALSE, viewMatrix);
+
+	const GLfloat lightPosition[4] = { 3.0f, 4.0f, 0.0f, 0.0f };
+	const GLfloat lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	const GLfloat lightAmbient[4] = { 0.25f, 0.25f, 0.25f, 1.0f };
+	const GLfloat lightSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	const GLfloat cubeDiffuse[4] = { 0.75f, 0.0f, 1.0f, 1.0f };
+	const GLfloat cubeAmbient[4] = { 0.3f, 0.25f, 0.4f, 1.0f };
+	const GLfloat cubeSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	const GLfloat cubeShininess[1] = { 32.0f };
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "lightPosition"), 1, lightPosition);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ld"), 1, lightDiffuse);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "La"), 1, lightAmbient);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ls"), 1, lightSpecular);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Kd"), 1, cubeDiffuse);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ka"), 1, cubeAmbient);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ks"), 1, cubeSpecular);
+	glUniform1fv(glGetUniformLocation(g_shaderProgram, "shininess"), 1, cubeShininess);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glBindTexture(GL_TEXTURE_2D, pOrigObj->GetTextureObject());
+	glBindVertexArray(pOrigObj->GetVertexArrayObject());
+	glDrawArrays(GL_TRIANGLES, 0, pOrigObj->GetVertexArrayLen());
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFlush();
 	glUseProgram(0);
-
+#endif
 	CheckGLError();
-
-    CheckGLError();
 }
 
 
@@ -327,12 +347,19 @@ wxBEGIN_EVENT_TABLE(TestGLCanvas, wxGLCanvas)
     EVT_TIMER(SpinTimer, TestGLCanvas::OnSpinTimer)
 wxEND_EVENT_TABLE()
 
+static const int attributes[] = {
+	WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+	WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+	WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+	0
+};
+
 TestGLCanvas::TestGLCanvas(wxWindow *parent)
     // With perspective OpenGL graphics, the wxFULL_REPAINT_ON_RESIZE style
     // flag should always be set, because even making the canvas smaller should
     // be followed by a paint event that updates the entire canvas with new
     // viewport settings.
-    : wxGLCanvas(parent, wxID_ANY, NULL,
+    : wxGLCanvas(parent, wxID_ANY, attributes,
                  wxDefaultPosition, wxDefaultSize,
                  wxFULL_REPAINT_ON_RESIZE),
       m_xangle(30.0),

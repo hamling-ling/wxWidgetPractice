@@ -24,4 +24,8 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Texture.frag" />
+    <None Include="Texture.vert" />
+  </ItemGroup>
 </Project>
