@@ -50,9 +50,9 @@ CTexture::GetTexHeight() const
 
 
 bool
-CTexture::LoadBitmap(const char* file_name)
+CTexture::LoadBitmapFile(const char* file_name)
 {
-	if (!CBitmapFile::LoadBitmap(file_name)) {
+	if (!CBitmapFile::LoadBitmapFile(file_name)) {
 		return false;
 	}
 	if (!CreateTexImage()) {

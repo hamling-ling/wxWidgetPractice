@@ -13,19 +13,34 @@
 
 #include <GL/glew.h>
 #include "wx/glcanvas.h"
+#include "SimpleObject.h"
 
 // the rendering context used by all GL canvases
 class TestGLContext : public wxGLContext
 {
 public:
     TestGLContext(wxGLCanvas *canvas);
-
+	~TestGLContext();
     // render the cube showing it at given angles
     void DrawRotatedCube(float xangle, float yangle);
 
 private:
     // textures for the cube faces
     GLuint m_textures[6];
+
+	GLuint g_vertexShader;
+	GLuint g_fragmentShader;
+	GLuint g_shaderProgram;
+
+	const GLfloat normalsAndVertices[3][8] =
+	{
+		{ -0.5f, -0.5f, 0.5f, 0.0f,  0.0f,  1.0f, 0.0f, 0.0f },
+		{ 0.5f, -0.5f, 0.5f, 0.0f,  0.0f,  1.0f, 1.0f, 0.0f },
+		{ 0.0f,  1.0f, 0.5f, 0.0f,  0.0f,  1.0f, 0.5f, 1.0f },
+	};
+
+	SimpleObject* pOrigObj;
+	vector<SimpleObject*> objects;
 };
 
 // Define a new application type

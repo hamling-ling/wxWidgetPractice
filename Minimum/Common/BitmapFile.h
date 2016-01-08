@@ -26,7 +26,7 @@ public:
 
 	const unsigned char* GetImage() const;
 
-	virtual bool LoadBitmap(const char* file_name);
+	virtual bool LoadBitmapFile(const char* file_name);
 };
 
 

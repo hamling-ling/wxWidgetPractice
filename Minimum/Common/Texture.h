@@ -24,7 +24,7 @@ public:
 
 	const unsigned char* GetTexImage() const;
 
-	virtual bool LoadBitmap(const char* file_name);
+	virtual bool LoadBitmapFile(const char* file_name);
 
 protected:
 	bool CreateTexImage();

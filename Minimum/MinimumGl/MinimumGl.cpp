@@ -2,6 +2,8 @@
 #include "wx/wxprec.h"
 
 #include "MinimumGl.h"
+#include "Texture.h"
+#include "Matrix4x4f.h"
 
 // ----------------------------------------------------------------------------
 // constants
@@ -93,6 +95,30 @@ static wxImage DrawDice(int size, unsigned num)
 // implementation
 // ============================================================================
 
+static void LoadShaderSource(GLuint shader, const char* fileName)
+{
+	FILE* fp = NULL;
+	int size;
+	char* buf;
+
+	errno_t err = fopen_s(&fp, fileName, "rb");
+	if (err != 0)
+		return;
+
+	fseek(fp, 0, SEEK_END);
+	size = ftell(fp);
+
+	buf = (char *)malloc(size);
+	fseek(fp, 0, SEEK_SET);
+
+	fread(buf, 1, size, fp);
+
+	glShaderSource(shader, 1, (const GLchar **)&buf, &size);
+
+	free(buf);
+	fclose(fp);
+
+}
 // ----------------------------------------------------------------------------
 // TestGLContext
 // ----------------------------------------------------------------------------
@@ -102,116 +128,151 @@ TestGLContext::TestGLContext(wxGLCanvas *canvas)
 {
     SetCurrent(*canvas);
 
+	CheckGLError();
 	glewInit();
+	CheckGLError();
 
-    // set up the parameters we want to use
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_TEXTURE_2D);
+	g_vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	LoadShaderSource(g_vertexShader, "Texture.vert");
+	glCompileShader(g_vertexShader);
+	CheckGLError();
 
-    // add slightly more light, the default lighting is rather dark
-    GLfloat ambient[] = { 0.5, 0.5, 0.5, 0.5 };
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+	g_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	LoadShaderSource(g_fragmentShader, "Texture.frag");
+	glCompileShader(g_fragmentShader);
+	CheckGLError();
 
-    // set viewing projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-0.5f, 0.5f, -0.5f, 0.5f, 1.0f, 3.0f);
+	g_shaderProgram = glCreateProgram();
+	glAttachShader(g_shaderProgram, g_vertexShader);
+	glAttachShader(g_shaderProgram, g_fragmentShader);
+	CheckGLError();
 
-    // create the textures to use for cube sides: they will be reused by all
-    // canvases (which is probably not critical in the case of simple textures
-    // we use here but could be really important for a real application where
-    // each texture could take many megabytes)
-    glGenTextures(WXSIZEOF(m_textures), m_textures);
+	glDeleteShader(g_vertexShader);
+	glDeleteShader(g_fragmentShader);
+	glLinkProgram(g_shaderProgram);
+	CheckGLError();
 
-    for ( unsigned i = 0; i < WXSIZEOF(m_textures); i++ )
-    {
-        glBindTexture(GL_TEXTURE_2D, m_textures[i]);
+	GLint vertexLocation = glGetAttribLocation(g_shaderProgram, "Vertex");
+	GLint normalLocation = glGetAttribLocation(g_shaderProgram, "Normal");
+	GLint texCoordLocation = glGetAttribLocation(g_shaderProgram, "TexCoord");
+	CheckGLError();
 
-        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	CTexture texture;
+	texture.LoadBitmapFile("texture.bmp");
+	pOrigObj = new SimpleObject();
+	CheckGLError();
+	pOrigObj->BindBuffer(vertexLocation, normalLocation, texCoordLocation,
+		&(normalsAndVertices[0][0]), 3,
+		texture);
+	CheckGLError();
 
-        const wxImage img(DrawDice(256, i + 1));
+	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "Vertex"));
+	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "Normal"));
+	glDisableVertexAttribArray(glGetAttribLocation(g_shaderProgram, "TexCoord"));
+	CheckGLError();
 
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.GetWidth(), img.GetHeight(),
-                     0, GL_RGB, GL_UNSIGNED_BYTE, img.GetData());
-    }
+	glUseProgram(g_shaderProgram);
+	CheckGLError();
+	glUniform1f(glGetUniformLocation(g_shaderProgram, "surfaceTexture"), 0);
+	CheckGLError();
+	glUseProgram(0);
+	CheckGLError();
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+
+	glClearColor(0.0f, 0.0f, 0.2f, 1.0f);
 
     CheckGLError();
+
+	const GLfloat lightPosition[4] = { 3.0f, 4.0f, 0.0f, 0.0f };
+	const GLfloat lightDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	const GLfloat lightAmbient[4] = { 0.25f, 0.25f, 0.25f, 1.0f };
+	const GLfloat lightSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	const GLfloat cubeDiffuse[4] = { 0.75f, 0.0f, 1.0f, 1.0f };
+	const GLfloat cubeAmbient[4] = { 0.3f, 0.25f, 0.4f, 1.0f };
+	const GLfloat cubeSpecular[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	const GLfloat cubeShininess[1] = { 32.0f };
+
+	glUseProgram(g_shaderProgram);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "lightPosition"), 1, lightPosition);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ld"), 1, lightDiffuse);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "La"), 1, lightAmbient);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ls"), 1, lightSpecular);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Kd"), 1, cubeDiffuse);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ka"), 1, cubeAmbient);
+	glUniform4fv(glGetUniformLocation(g_shaderProgram, "Ks"), 1, cubeSpecular);
+	glUniform1fv(glGetUniformLocation(g_shaderProgram, "shininess"), 1, cubeShininess);
+
+	CheckGLError();
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glBindTexture(GL_TEXTURE_2D, pOrigObj->GetTextureObject());
+	glBindVertexArray(pOrigObj->GetVertexArrayObject());
+	glDrawArrays(GL_TRIANGLES, 0, pOrigObj->GetVertexArrayLen());
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glFlush();
+
+	glUseProgram(0);
+
+	CheckGLError();
 }
 
-void TestGLContext::DrawRotatedCube(float xangle, float yangle)
+TestGLContext::~TestGLContext()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	delete pOrigObj;
+	glDeleteProgram(g_shaderProgram);
+}
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -2.0f);
-    glRotatef(xangle, 1.0f, 0.0f, 0.0f);
-    glRotatef(yangle, 0.0f, 1.0f, 0.0f);
+void TestGLContext::DrawRotatedCube(float nWidth, float nHeight)
+{
+	CheckGLError();
 
-    // draw six faces of a cube of size 1 centered at (0, 0, 0)
-    glBindTexture(GL_TEXTURE_2D, m_textures[0]);
-    glBegin(GL_QUADS);
-        glNormal3f( 0.0f, 0.0f, 1.0f);
-        glTexCoord2f(0, 0); glVertex3f( 0.5f, 0.5f, 0.5f);
-        glTexCoord2f(1, 0); glVertex3f(-0.5f, 0.5f, 0.5f);
-        glTexCoord2f(1, 1); glVertex3f(-0.5f,-0.5f, 0.5f);
-        glTexCoord2f(0, 1); glVertex3f( 0.5f,-0.5f, 0.5f);
-    glEnd();
+	CMatrix4x4f perspective;;
 
-    glBindTexture(GL_TEXTURE_2D, m_textures[1]);
-    glBegin(GL_QUADS);
-        glNormal3f( 0.0f, 0.0f,-1.0f);
-        glTexCoord2f(0, 0); glVertex3f(-0.5f,-0.5f,-0.5f);
-        glTexCoord2f(1, 0); glVertex3f(-0.5f, 0.5f,-0.5f);
-        glTexCoord2f(1, 1); glVertex3f( 0.5f, 0.5f,-0.5f);
-        glTexCoord2f(0, 1); glVertex3f( 0.5f,-0.5f,-0.5f);
-    glEnd();
+	float l, r, b, t, n = 0.1f, f = 10.0f;
+	t = n * tanf(PI * (45.0f / 2.0f) / 180.0f);
+	b = -t;
+	r = t * (float)nWidth / (float)nHeight;
+	l = -r;
+	perspective.MakePerspective(l, r, b, t, n, f);
+	float projection[16];
+	perspective.GetGLMat(projection);
 
-    glBindTexture(GL_TEXTURE_2D, m_textures[2]);
-    glBegin(GL_QUADS);
-        glNormal3f( 0.0f, 1.0f, 0.0f);
-        glTexCoord2f(0, 0); glVertex3f( 0.5f, 0.5f, 0.5f);
-        glTexCoord2f(1, 0); glVertex3f( 0.5f, 0.5f,-0.5f);
-        glTexCoord2f(1, 1); glVertex3f(-0.5f, 0.5f,-0.5f);
-        glTexCoord2f(0, 1); glVertex3f(-0.5f, 0.5f, 0.5f);
-    glEnd();
+	CMatrix4x4f rotationX;
+	CMatrix4x4f rotationY;
+	CMatrix4x4f translation;
+	CMatrix4x4f lookAt;
 
-    glBindTexture(GL_TEXTURE_2D, m_textures[3]);
-    glBegin(GL_QUADS);
-        glNormal3f( 0.0f,-1.0f, 0.0f);
-        glTexCoord2f(0, 0); glVertex3f(-0.5f,-0.5f,-0.5f);
-        glTexCoord2f(1, 0); glVertex3f( 0.5f,-0.5f,-0.5f);
-        glTexCoord2f(1, 1); glVertex3f( 0.5f,-0.5f, 0.5f);
-        glTexCoord2f(0, 1); glVertex3f(-0.5f,-0.5f, 0.5f);
-    glEnd();
+	float distance = sqrtf(3.0f * 2.5f * 2.5f);
+	float angle = atan2f(1.0f, sqrtf(2.0f)) * 180.0f / PI;
 
-    glBindTexture(GL_TEXTURE_2D, m_textures[4]);
-    glBegin(GL_QUADS);
-        glNormal3f( 1.0f, 0.0f, 0.0f);
-        glTexCoord2f(0, 0); glVertex3f( 0.5f, 0.5f, 0.5f);
-        glTexCoord2f(1, 0); glVertex3f( 0.5f,-0.5f, 0.5f);
-        glTexCoord2f(1, 1); glVertex3f( 0.5f,-0.5f,-0.5f);
-        glTexCoord2f(0, 1); glVertex3f( 0.5f, 0.5f,-0.5f);
-    glEnd();
+	translation.MakeTranslation(CVector3f(0.0f, 0.0f, -distance));
+	rotationX.MakeRotation(CVector3f(1.0f, 0.0f, 0.0f), angle);
+	rotationY.MakeRotation(CVector3f(0.0f, 1.0f, 0.0f), 0.0f);
+	lookAt = translation * rotationX * rotationY;
+	float modelViewMatrix[16];
+	float viewMatrix[16];
+	lookAt.GetGLMat(modelViewMatrix);
+	lookAt.GetGLMat(viewMatrix);
 
-    glBindTexture(GL_TEXTURE_2D, m_textures[5]);
-    glBegin(GL_QUADS);
-        glNormal3f(-1.0f, 0.0f, 0.0f);
-        glTexCoord2f(0, 0); glVertex3f(-0.5f,-0.5f,-0.5f);
-        glTexCoord2f(1, 0); glVertex3f(-0.5f,-0.5f, 0.5f);
-        glTexCoord2f(1, 1); glVertex3f(-0.5f, 0.5f, 0.5f);
-        glTexCoord2f(0, 1); glVertex3f(-0.5f, 0.5f,-0.5f);
-    glEnd();
+	CMatrix4x4f lookAtPerspective;
+	lookAtPerspective = perspective * lookAt;
+	float modelViewProjectionMatrix[16];
+	lookAtPerspective.GetGLMat(modelViewProjectionMatrix);
 
-    glFlush();
+	CheckGLError();
+	glUseProgram(g_shaderProgram);
+	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "modelViewProjectionMatrix"), 1, GL_FALSE, modelViewProjectionMatrix);
+	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelViewMatrix);
+	glUniformMatrix4fv(glGetUniformLocation(g_shaderProgram, "viewMatrix"), 1, GL_FALSE, viewMatrix);
+	glUseProgram(0);
+
+	CheckGLError();
 
     CheckGLError();
 }
@@ -295,7 +356,7 @@ void TestGLCanvas::OnPaint(wxPaintEvent& WXUNUSED(event))
 
     TestGLContext& canvas = wxGetApp().GetContext(this);
     glViewport(0, 0, ClientSize.x, ClientSize.y);
-	canvas.DrawRotatedCube(m_xangle, m_yangle);
+	canvas.DrawRotatedCube(ClientSize.x, ClientSize.y);
     SwapBuffers();
 }
 

@@ -59,7 +59,7 @@ CBitmapFile::GetImage() const
 
 
 bool
-CBitmapFile::LoadBitmap(const char* file_name)
+CBitmapFile::LoadBitmapFile(const char* file_name)
 {
 	BITMAPFILEHEADER bitmapFileHeader;
 	FILE* fp;
